@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2000
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CreateOutlookSignatureTool", "CreateOutlookSignatureTool\CreateOutlookSignatureTool.csproj", "{DC9D7DBD-B064-494F-A4FB-8F62E406E6C7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OutlookSignatureTool", "OutlookSignatureTool\OutlookSignatureTool.csproj", "{DC9D7DBD-B064-494F-A4FB-8F62E406E6C7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
