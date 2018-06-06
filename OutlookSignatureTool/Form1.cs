@@ -1,30 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-
-
-
-//%username%\AppData\Roaming\Microsoft\Signatures
-
+using Word = Microsoft.Office.Interop.Word;
 
 
 namespace CreateOutlookSignatureTool
 {
-
-
     public partial class Form1 : Form
     {
-        List<Templete> templates = new List<Templete>();
-        string currentTempleteHTML;
-        List<FieldsInTemplete> currentFields = new List<FieldsInTemplete>();
+        List<SignatureTemplate> templates = new List<SignatureTemplate>();
+        string currentTemplateHTML;
+        List<FieldsInTemplate> currentFields = new List<FieldsInTemplate>();
 
         public Form1()
         {
@@ -34,15 +22,21 @@ namespace CreateOutlookSignatureTool
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            //todo: make sure no templates works
             string[] paths = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\Templates", "*.htm");
+
+            //Make sure no templates works
+            if (paths.Length == 0)
+            {
+                MessageBox.Show(this, "There was no Templates found in the Templates folder.", "Missing Email Templates", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                Close();
+                return;
+            }
+            
             foreach (var path in paths)
             {
-
                 string nameToAdd = Path.GetFileNameWithoutExtension(path);
-                // string nameToAdd = Regex.Match(path, @"[^\\]*(?=.htm$)").Value; // another method
                 string pathWithoutExt = Path.Combine(Path.GetDirectoryName(path), nameToAdd);
-                templates.Add( new Templete
+                templates.Add( new SignatureTemplate
                 {
                     FilePath = pathWithoutExt,
                     Name = nameToAdd
@@ -51,24 +45,24 @@ namespace CreateOutlookSignatureTool
 
             cboTemplate.DataSource = new BindingSource(templates,null);
             cboTemplate.DisplayMember = "Name";
-            cboTemplate.SelectionChangeCommitted += (sender1, e1) => NewTempleteSelected();
+            cboTemplate.SelectionChangeCommitted += (sender1, e1) => NewTemplateSelected();
 
-            NewTempleteSelected();
+            NewTemplateSelected();
         }
 
 
-        void NewTempleteSelected()
+        void NewTemplateSelected()
         {
-            // Lets get the text
-            string path = (cboTemplate.SelectedValue as Templete).FilePath + ".htm";
-            currentTempleteHTML = File.ReadAllText(path);
-            currentTempleteHTML= Regex.Replace(currentTempleteHTML, @"[^\u0000-\u007F]+", string.Empty);
+            // Let's get the text
+            string path = (cboTemplate.SelectedValue as SignatureTemplate).FilePath + ".htm";
+            currentTemplateHTML = File.ReadAllText(path);
+            currentTemplateHTML= Regex.Replace(currentTemplateHTML, @"[^\u0000-\u007F]+", string.Empty);
 
             // Clear the current fields
             currentFields.Clear();
 
             // Goes through text and finds the fillable fields 
-            MatchCollection matches = Regex.Matches(currentTempleteHTML, @"(?:\{\*)([^\{\}]{1,15})(?:\*\})");
+            MatchCollection matches = Regex.Matches(currentTemplateHTML, @"(?:\{\*)([^\{\}]{1,15})(?:\*\})");
 
             flow.Controls.Clear();
 
@@ -76,7 +70,6 @@ namespace CreateOutlookSignatureTool
             {
                 foreach (Capture capture in match.Captures)
                 {
-                    //Console.WriteLine("Index={0}, Value={1}", capture.Index, capture.Value);
                     Label lbl = new Label { Text = match.Groups[1].Value + ":", AutoSize = true};
                     flow.Controls.Add(lbl);
                     TextBox txt = new TextBox { /*Width = flow.Width - 120*/ };
@@ -84,7 +77,7 @@ namespace CreateOutlookSignatureTool
                     flow.Controls.Add(txt);
                     flow.SetFlowBreak(txt, true);
 
-                    var newField = new FieldsInTemplete { txtBox = txt, Name = match.Value };
+                    var newField = new FieldsInTemplate { TxtBox = txt, Name = match.Value };
                     txt.Tag = newField;
                     currentFields.Add(newField);
                 }
@@ -95,12 +88,12 @@ namespace CreateOutlookSignatureTool
 
         private void RefreshPreview()
         {
-            string newHTML = currentTempleteHTML;
+            string newHTML = currentTemplateHTML;
              newHTML = Regex.Replace(newHTML, @"[^\u0000-\u007F]+", string.Empty);
             foreach (var field in currentFields)
             {
                 //if (!string.IsNullOrEmpty(field.txtBox.Text))
-                    newHTML = newHTML.Replace(field.Name, field.txtBox.Text);
+                    newHTML = newHTML.Replace(field.Name, field.TxtBox.Text);
             }
             // Lets update the preview window
             webBrowserPreview.DocumentText = newHTML;
@@ -108,8 +101,8 @@ namespace CreateOutlookSignatureTool
 
         private void btnApplyToOutlook_Click(object sender, EventArgs e)
         {
-            string name = (cboTemplate.SelectedValue as Templete).Name;
-            string path = (cboTemplate.SelectedValue as Templete).FilePath;
+            string name = (cboTemplate.SelectedValue as SignatureTemplate).Name;
+            string path = (cboTemplate.SelectedValue as SignatureTemplate).FilePath;
             //path = Path.Combine(path, name);
 
             string newHTM = File.ReadAllText(path + ".htm");
@@ -122,9 +115,9 @@ namespace CreateOutlookSignatureTool
 
             foreach (var field in currentFields)
             {
-                newHTM = newHTM.Replace(field.Name, field.txtBox.Text);
-                newRTF = newRTF.Replace(field.Name, field.txtBox.Text);
-                newTXT = newTXT.Replace(field.Name, field.txtBox.Text);
+                newHTM = newHTM.Replace(field.Name, field.TxtBox.Text);
+                newRTF = newRTF.Replace(field.Name, field.TxtBox.Text);
+                newTXT = newTXT.Replace(field.Name, field.TxtBox.Text);
             }
             
             string SignaturesPath = Path.Combine(
@@ -140,35 +133,46 @@ namespace CreateOutlookSignatureTool
             string txtPath = Path.Combine(SignaturesPath, name + ".txt");
             File.WriteAllText(txtPath, newTXT);
 
-            //Now Create the folder
+            // Now Create the folder
             string newPath = Path.Combine(SignaturesPath, name + "_files");
             if (!Directory.Exists(newPath))
                 Directory.CreateDirectory(newPath);
 
-            //Copy all the files & Replaces any files with the same name
-            //string supportFiles = Path.Combine(SignaturesPath, path + "_files");
             foreach (var source in Directory.GetFiles(path + "_files"))
             {
                 string target = Path.Combine(newPath, Path.GetFileName(source));
                 File.Copy(source, target, true);
             }
 
-
-
+            SetOutlooksDefaultSignature(name);
         }
 
-
+        /// <summary>
+        /// Sets Outlooks Default Signature
+        /// </summary>
+        private static void SetOutlooksDefaultSignature(string signature)
+        {
+            // Source: https://stackoverflow.com/a/23151372/2352507 (2018)
+            Word.Application oWord = new Word.Application();
+            Word.EmailOptions oOptions;
+            oOptions = oWord.Application.EmailOptions;
+            oOptions.EmailSignature.NewMessageSignature = signature;
+            oOptions.EmailSignature.ReplyMessageSignature = signature;
+            // Release Word
+            if (oOptions != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(oOptions);
+            if (oWord != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(oWord);
+        }
     }
 
-    class Templete
+    class SignatureTemplate
     {
         public string Name { get; set; }
         public string FilePath;
     }
 
-    class FieldsInTemplete
+    class FieldsInTemplate
     {
         public string Name { get; set; }
-        public TextBox txtBox;
+        public TextBox TxtBox;
     }
 }
