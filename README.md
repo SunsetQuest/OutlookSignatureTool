@@ -17,7 +17,7 @@ An easy way for Organizations to deploy a standardized signature in Outlook.
 
 ## Current issues:
  - images do not display in the preview
- - It does not set the signature in outlook as your default signature. Users still need to go to Insert -> Signature from Outlook.
+
 
 
 
