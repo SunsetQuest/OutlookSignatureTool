@@ -1,7 +1,6 @@
 ### Hello World, Welcome to the...
 
 # Outlook Signature Tool
-# Outlook Signature Tool
 An easy way for Organizations to deploy a standardized signature in Outlook. 
 
 ## How to deploy this tool in your organization
