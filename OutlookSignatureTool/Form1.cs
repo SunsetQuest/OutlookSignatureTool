@@ -17,7 +17,6 @@ namespace CreateOutlookSignatureTool
         public Form1()
         {
             InitializeComponent();
-
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -65,14 +64,17 @@ namespace CreateOutlookSignatureTool
             MatchCollection matches = Regex.Matches(currentTemplateHTML, @"(?:\{\*)([^\{\}]{1,15})(?:\*\})");
 
             flow.Controls.Clear();
+            Label spacer = new Label();
+            flow.Controls.Add(spacer);
+            flow.SetFlowBreak(spacer, true);
 
             foreach (Match match in matches)
             {
                 foreach (Capture capture in match.Captures)
                 {
-                    Label lbl = new Label { Text = match.Groups[1].Value + ":", AutoSize = true};
+                    Label lbl = new Label { Text = match.Groups[1].Value + ":", Height= 25, TextAlign = System.Drawing.ContentAlignment.MiddleLeft};
                     flow.Controls.Add(lbl);
-                    TextBox txt = new TextBox { /*Width = flow.Width - 120*/ };
+                    TextBox txt = new TextBox { Width = 300 };
                     txt.TextChanged += (s, e) => RefreshPreview(); 
                     flow.Controls.Add(txt);
                     flow.SetFlowBreak(txt, true);
@@ -88,6 +90,7 @@ namespace CreateOutlookSignatureTool
 
         private void RefreshPreview()
         {
+
             string newHTML = currentTemplateHTML;
              newHTML = Regex.Replace(newHTML, @"[^\u0000-\u007F]+", string.Empty);
             foreach (var field in currentFields)
@@ -95,60 +98,85 @@ namespace CreateOutlookSignatureTool
                 //if (!string.IsNullOrEmpty(field.txtBox.Text))
                     newHTML = newHTML.Replace(field.Name, field.TxtBox.Text);
             }
+
+            // The WebBrowser control needs to full path to display properly. 
+            SignatureTemplate sig = cboTemplate.SelectedValue as SignatureTemplate;
+            newHTML = newHTML.Replace($"{sig.Name}_files/", $"{sig.FilePath}_files/");
+
             // Lets update the preview window
             webBrowserPreview.DocumentText = newHTML;
         }
 
         private void btnApplyToOutlook_Click(object sender, EventArgs e)
         {
+            //todo: add please wait
+
+
+
             string name = (cboTemplate.SelectedValue as SignatureTemplate).Name;
             string path = (cboTemplate.SelectedValue as SignatureTemplate).FilePath;
-            //path = Path.Combine(path, name);
 
-            string newHTM = File.ReadAllText(path + ".htm");
-            string newRTF = File.ReadAllText(path + ".rtf");
-            string newTXT = File.ReadAllText(path + ".txt");
-
-            newHTM = Regex.Replace(newHTM, @"[^\u0000-\u007F]+", string.Empty);
-            newRTF = Regex.Replace(newRTF, @"[^\u0000-\u007F]+", string.Empty);
-            newTXT = Regex.Replace(newTXT, @"[^\u0000-\u007F]+", string.Empty);
-
-            foreach (var field in currentFields)
+            try
             {
-                newHTM = newHTM.Replace(field.Name, field.TxtBox.Text);
-                newRTF = newRTF.Replace(field.Name, field.TxtBox.Text);
-                newTXT = newTXT.Replace(field.Name, field.TxtBox.Text);
+                string newHTM = File.ReadAllText(path + ".htm");
+                //string newRTF = File.ReadAllText(path + ".rtf");
+                string newTXT = File.ReadAllText(path + ".txt");
+
+                newHTM = Regex.Replace(newHTM, @"[^\u0000-\u007F]+", string.Empty);
+                //newRTF = Regex.Replace(newRTF, @"[^\u0000-\u007F]+", string.Empty);
+                newTXT = Regex.Replace(newTXT, @"[^\u0000-\u007F]+", string.Empty);
+
+                foreach (var field in currentFields)
+                {
+                    newHTM = newHTM.Replace(field.Name, field.TxtBox.Text);
+                    //newRTF = newRTF.Replace(field.Name, field.TxtBox.Text);
+                    newTXT = newTXT.Replace(field.Name, field.TxtBox.Text);
+                }
+
+                string SignaturesPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Microsoft", "Signatures");
+
+                string htmPath = Path.Combine(SignaturesPath, name + ".htm");
+                File.WriteAllText(htmPath, newHTM);
+
+                string rtfPath = Path.Combine(SignaturesPath, name + ".rtf");
+                File.WriteAllText(rtfPath, "");
+
+                string txtPath = Path.Combine(SignaturesPath, name + ".txt");
+                File.WriteAllText(txtPath, newTXT);
+
+                // Now Create the folder
+                string newPath = Path.Combine(SignaturesPath, name + "_files");
+                if (!Directory.Exists(newPath))
+                    Directory.CreateDirectory(newPath);
+
+                foreach (var source in Directory.GetFiles(path + "_files"))
+                {
+                    string target = Path.Combine(newPath, Path.GetFileName(source));
+                    File.Copy(source, target, true);
+                }
             }
-            
-            string SignaturesPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Microsoft","Signatures");
-
-            string htmPath = Path.Combine(SignaturesPath, name + ".htm");
-            File.WriteAllText(htmPath, newHTM);
-
-            string rtfPath = Path.Combine(SignaturesPath, name + ".rtf");
-            File.WriteAllText(rtfPath, newRTF);
-
-            string txtPath = Path.Combine(SignaturesPath, name + ".txt");
-            File.WriteAllText(txtPath, newTXT);
-
-            // Now Create the folder
-            string newPath = Path.Combine(SignaturesPath, name + "_files");
-            if (!Directory.Exists(newPath))
-                Directory.CreateDirectory(newPath);
-
-            foreach (var source in Directory.GetFiles(path + "_files"))
+            catch (Exception)
             {
-                string target = Path.Combine(newPath, Path.GetFileName(source));
-                File.Copy(source, target, true);
+                MessageBox.Show(this, "Signature update error", "We could not save the files to the Outlook folder. Please use another method or contact your IT department.", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                return;
             }
 
-            SetOutlooksDefaultSignature(name);
+            try
+            {
+                SetOutlooksDefaultSignature(name);
+            }
+            catch (Exception)
+            {
+                MessageBox.Show(this, "One final thing is needed", "The signature has been added to Outlook but still needs to be set as the default.\r\n", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                System.Diagnostics.Process.Start("Docs\\How to set your signature to automatically show on new emails.pdf");
+                return;
+            }
         }
 
         /// <summary>
-        /// Sets Outlooks Default Signature
+        /// Sets Default Signature in Outlook
         /// </summary>
         private static void SetOutlooksDefaultSignature(string signature)
         {
@@ -157,11 +185,12 @@ namespace CreateOutlookSignatureTool
             Word.EmailOptions oOptions;
             oOptions = oWord.Application.EmailOptions;
             oOptions.EmailSignature.NewMessageSignature = signature;
-            oOptions.EmailSignature.ReplyMessageSignature = signature;
+            //oOptions.EmailSignature.ReplyMessageSignature = signature;
             // Release Word
             if (oOptions != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(oOptions);
             if (oWord != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(oWord);
         }
+
     }
 
     class SignatureTemplate
