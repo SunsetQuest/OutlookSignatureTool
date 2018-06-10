@@ -24,6 +24,6 @@ An easy way for Organizations to deploy a standardized signature in Outlook.
 (none known at this time)
  
 ## Screenshots
-[![N|Solid](https://raw.githubusercontent.com/SunsetQuest/OutlookSignatureTool/Other/Screenshot.Main.png)](https://github.com/SunsetQuest/OutlookSignatureTool)
+[![N|Solid](https://raw.githubusercontent.com/SunsetQuest/OutlookSignatureTool/master/Other/Screenshot.Main.png)](https://github.com/SunsetQuest/OutlookSignatureTool)
 
 # Licensed under the MIT License.
