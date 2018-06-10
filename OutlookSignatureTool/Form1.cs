@@ -70,19 +70,17 @@ namespace CreateOutlookSignatureTool
 
             foreach (Match match in matches)
             {
-                foreach (Capture capture in match.Captures)
-                {
-                    Label lbl = new Label { Text = match.Groups[1].Value + ":", Height= 25, TextAlign = System.Drawing.ContentAlignment.MiddleLeft};
-                    flow.Controls.Add(lbl);
-                    TextBox txt = new TextBox { Width = 300 };
-                    txt.TextChanged += (s, e) => RefreshPreview(); 
-                    flow.Controls.Add(txt);
-                    flow.SetFlowBreak(txt, true);
+                Label lbl = new Label { Text = match.Groups[1].Value + ":", Height= 25, Width=120, TextAlign = System.Drawing.ContentAlignment.MiddleRight};
 
-                    var newField = new FieldsInTemplate { TxtBox = txt, Name = match.Value };
-                    txt.Tag = newField;
-                    currentFields.Add(newField);
-                }
+                flow.Controls.Add(lbl);
+                TextBox txt = new TextBox { Width = 300 };
+                txt.TextChanged += (s, e) => RefreshPreview(); 
+                flow.Controls.Add(txt);
+                flow.SetFlowBreak(txt, true);
+
+                var newField = new FieldsInTemplate { TxtBox = txt, Name = match.Value };
+                txt.Tag = newField;
+                currentFields.Add(newField);
             }
 
             RefreshPreview();
@@ -109,9 +107,8 @@ namespace CreateOutlookSignatureTool
 
         private void btnApplyToOutlook_Click(object sender, EventArgs e)
         {
-            //todo: add please wait
-
-
+            lblMsg.Text = "Please Wait...";
+            lblMsg.Visible = true;
 
             string name = (cboTemplate.SelectedValue as SignatureTemplate).Name;
             string path = (cboTemplate.SelectedValue as SignatureTemplate).FilePath;
@@ -137,6 +134,8 @@ namespace CreateOutlookSignatureTool
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "Microsoft", "Signatures");
 
+                Directory.CreateDirectory(SignaturesPath);
+
                 string htmPath = Path.Combine(SignaturesPath, name + ".htm");
                 File.WriteAllText(htmPath, newHTM);
 
@@ -157,22 +156,43 @@ namespace CreateOutlookSignatureTool
                     File.Copy(source, target, true);
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show(this, "Signature update error", "We could not save the files to the Outlook folder. Please use another method or contact your IT department.", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                MessageBox.Show(this, "We could not save the files to the Outlook folder. Please use another method or contact your IT department.\r\n\r\n" 
+                    + $"Message: {ex.Message}\r\n"
+                    + $"Source: {ex.Source}\r\n"
+                    + $"StackTrace: {ex.StackTrace}"
+                    , "Signature update error"
+                    , MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                
+                // Hide the "Please Wait..." message.
+                lblMsg.Visible = false;
                 return;
             }
 
             try
             {
                 SetOutlooksDefaultSignature(name);
+                var result = MessageBox.Show(this, "Your Outlook signature has been updated. Would you like to Close this app?"
+                    , "Congratulations"
+                    , MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                    Application.Exit();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show(this, "One final thing is needed", "The signature has been added to Outlook but still needs to be set as the default.\r\n", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                MessageBox.Show(this, "The signature has been added to Outlook but still needs to be set as the default.\r\n"
+                    + $"Message: {ex.Message}\r\n"
+                    + $"Source: {ex.Source}\r\n"
+                    + $"StackTrace: {ex.StackTrace}"
+                    , "One final thing is needed"
+                    , MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+
                 System.Diagnostics.Process.Start("Docs\\How to set your signature to automatically show on new emails.pdf");
-                return;
             }
+
+            // Hide the "Please Wait..." message.
+            lblMsg.Visible = false;
         }
 
         /// <summary>
