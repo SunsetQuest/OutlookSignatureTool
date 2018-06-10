@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.webBrowserPreview = new System.Windows.Forms.WebBrowser();
             this.label8 = new System.Windows.Forms.Label();
             this.btnApplyToOutlook = new System.Windows.Forms.Button();
@@ -170,6 +171,7 @@
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.btnApplyToOutlook);
             this.Controls.Add(this.label8);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "Form1";
             this.Text = "Outlook Signature Tool";
             this.Load += new System.EventHandler(this.Form1_Load);
